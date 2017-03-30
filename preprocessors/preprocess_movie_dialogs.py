@@ -1,27 +1,45 @@
-# -*- coding: utf-8 -*-
-
 """Preprocesses Cornell Movie Dialog data."""
-import sys
-import codecs
 import nltk
+import random
 import tensorflow as tf
 
-tf.app.flags.DEFINE_string("raw_data", "", "Raw data path")
-tf.app.flags.DEFINE_string("out_file", "", "File to write preprocessed data "
-                                           "to.")
+tf.app.flags.DEFINE_string("raw_data", "../corpus/movie_lines_utf8.txt", "")
+tf.app.flags.DEFINE_string("out_train_file", "../corpus/movie_train.txt", "")
+tf.app.flags.DEFINE_string("out_val_file", "../corpus/movie_val.txt", "")
+tf.app.flags.DEFINE_string("out_test_file", "../corpus/movie_test.txt", "")
 
 FLAGS = tf.app.flags.FLAGS
 
 
 def main(_):
-    with codecs.open(FLAGS.raw_data, "r", "utf-8", errors='ignore') as raw_data, \
-            open(FLAGS.out_file, "w") as out:
+    with open(FLAGS.raw_data, "r", encoding='utf8') as raw_data, \
+        open(FLAGS.out_train_file, "w", encoding='utf8') as out_train, \
+        open(FLAGS.out_val_file, "w", encoding='utf8') as out_val, \
+        open(FLAGS.out_test_file, "w", encoding='utf8') as out_test:
+
+        print('Processing...')
+        preprocessed = []
+
         for line in raw_data:
             parts = line.split(" +++$+++ ")
             dialog_line = parts[-1]
-            s = dialog_line.strip().lower()#.decode("utf-8", "ignore")
-            preprocessed_line = " ".join(nltk.word_tokenize(s))
-            out.write(preprocessed_line + "\n")
+            s = dialog_line.strip().lower()
+            preprocessed.append(" ".join(nltk.word_tokenize(s)))
 
+        size = len(preprocessed)
+        train_size, val_size = int(size * 0.7), int(size * 0.2)
+        print('Total lines: {0}\nTrain lines: {1}\nValidation lines: {2}\nTest lines: {3}.'.format(size, train_size, val_size, size - train_size - val_size))
+
+        random.shuffle(preprocessed)
+
+        for index, line in enumerate(preprocessed):
+            if index < train_size:
+                out_train.write(line + '\n')
+            elif index < train_size + val_size:
+                out_val.write(line + '\n')
+            else:
+                out_test.write(line + '\n')
+
+        print('Done.')
 if __name__ == "__main__":
     tf.app.run()
