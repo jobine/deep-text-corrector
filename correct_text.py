@@ -19,6 +19,7 @@ import math
 import os
 import sys
 import time
+import multiprocessing
 from collections import defaultdict
 
 import numpy as np
@@ -111,7 +112,7 @@ class DefaultMovieDialogConfig():
     use_lstm = True
     use_rms_prop = False
 
-    cpu_num = 4
+    cpu_num = multiprocessing.cpu_count()
 
     projection_bias = 0.0
 
@@ -139,6 +140,7 @@ class DefaultFCEConfig():
     cpu_num = 4
 
     projection_bias = 0.0
+
 
 def create_model(session, forward_only, model_path, config=TestConfig()):
     """Create translation model and initialize or load parameters in session."""
@@ -175,14 +177,11 @@ def train(data_reader, train_path, test_path, model_path):
     sess_config = tf.ConfigProto(device_count={"CPU": config.cpu_num}, inter_op_parallelism_threads=0, intra_op_parallelism_threads=0)
     with tf.Session(config=sess_config) as sess:
         # Create model.
-        print(
-            "Creating %d layers of %d units." % (
-                config.num_layers, config.size))
+        print("Creating %d layers of %d units." % (config.num_layers, config.size))
         sys.stdout.flush()
         model = create_model(sess, False, model_path, config=config)
         # Read data into buckets and compute their sizes.
-        train_bucket_sizes = [len(train_data[b]) for b in
-                              range(len(config.buckets))]
+        train_bucket_sizes = [len(train_data[b]) for b in range(len(config.buckets))]
         print("Training bucket sizes: {}".format(train_bucket_sizes))
         train_total_size = float(sum(train_bucket_sizes))
         print("Total train size: {}".format(train_total_size))
@@ -217,43 +216,31 @@ def train(data_reader, train_path, test_path, model_path):
             loss += step_loss / config.steps_per_checkpoint
             current_step += 1
 
-            # Once in a while, we save checkpoint, print statistics, and run
-            # evals.
+            # Once in a while, we save checkpoint, print statistics, and run evals.
             if current_step % config.steps_per_checkpoint == 0:
                 # Print statistics for the previous epoch.
-                perplexity = math.exp(float(loss)) if loss < 300 else float(
-                    "inf")
-                print("global step %d learning rate %.4f step-time %.2f "
-                      "perplexity %.2f" % (
-                          model.global_step.eval(), model.learning_rate.eval(),
-                          step_time, perplexity))
-                # Decrease learning rate if no improvement was seen over last
-                #  3 times.
-                if len(previous_losses) > 2 and loss > max(
-                        previous_losses[-3:]):
+                perplexity = math.exp(float(loss)) if loss < 300 else float("inf")
+                print("[%s] global step %d learning rate %.4f step-time %.2f perplexity %.2f" % (time.asctime(), model.global_step.eval(), model.learning_rate.eval(), step_time, perplexity))
+                # Decrease learning rate if no improvement was seen over last 3 times.
+                if len(previous_losses) > 2 and loss > max(previous_losses[-3:]):
                     sess.run(model.learning_rate_decay_op)
                 previous_losses.append(loss)
                 # Save checkpoint and zero timer and loss.
                 checkpoint_path = os.path.join(model_path, "translate.ckpt")
-                model.saver.save(sess, checkpoint_path,
-                                 global_step=model.global_step)
+                model.saver.save(sess, checkpoint_path, global_step=model.global_step)
                 step_time, loss = 0.0, 0.0
                 # Run evals on development set and print their perplexity.
                 for bucket_id in range(len(config.buckets)):
                     if len(test_data[bucket_id]) == 0:
                         print("  eval: empty bucket %d" % (bucket_id))
                         continue
-                    encoder_inputs, decoder_inputs, target_weights = \
-                        model.get_batch(test_data, bucket_id)
+                    encoder_inputs, decoder_inputs, target_weights = model.get_batch(test_data, bucket_id)
                     _, eval_loss, _ = model.step(sess, encoder_inputs,
                                                  decoder_inputs,
                                                  target_weights, bucket_id,
                                                  True)
-                    eval_ppx = math.exp(
-                        float(eval_loss)) if eval_loss < 300 else float(
-                        "inf")
-                    print("  eval: bucket %d perplexity %.2f" % (
-                        bucket_id, eval_ppx))
+                    eval_ppx = math.exp(float(eval_loss)) if eval_loss < 300 else float("inf")
+                    print("  eval: bucket %d perplexity %.2f" % (bucket_id, eval_ppx))
                 sys.stdout.flush()
 
 
