@@ -36,7 +36,7 @@ tf.app.flags.DEFINE_string("train_path", "corpus/movie_train.txt", "Training dat
 tf.app.flags.DEFINE_string("val_path", "corpus/movie_val.txt", "Validation data path.")
 tf.app.flags.DEFINE_string("test_path", "corpus/movie_test.txt", "Testing data path.")
 tf.app.flags.DEFINE_string("model_path", "movie_dialog_model", "Path where the model is "
-                                                  "saved.")
+                                                               "saved.")
 tf.app.flags.DEFINE_boolean("decode", False, "Whether we should decode data "
                                              "at test_path. The default is to "
                                              "train a model and save it at "
@@ -45,10 +45,11 @@ tf.app.flags.DEFINE_boolean("decode", False, "Whether we should decode data "
 tf.app.flags.DEFINE_boolean("correct", False, "Whether we should correct sentence.")
 
 tf.app.flags.DEFINE_boolean("evaluate", False, "Whether we should evaluate sentence.")
-                                             
+
 FLAGS = tf.app.flags.FLAGS
 
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
+
 
 class TestConfig():
     # We use a number of buckets and pad to the closest one for efficiency.
@@ -140,6 +141,7 @@ class DefaultFCEConfig():
 
     projection_bias = 0.0
 
+
 def create_model(session, forward_only, model_path, config=TestConfig()):
     """Create translation model and initialize or load parameters in session."""
     model = TextCorrectorModel(
@@ -161,7 +163,7 @@ def create_model(session, forward_only, model_path, config=TestConfig()):
         model.saver.restore(session, ckpt.model_checkpoint_path)
     else:
         print("Created model with fresh parameters.")
-        session.run(tf.global_variables_initializer())#tf.initialize_all_variables()
+        session.run(tf.global_variables_initializer())  # tf.initialize_all_variables()
     sys.stdout.flush()
     return model
 
@@ -172,17 +174,16 @@ def train(data_reader, train_path, test_path, model_path):
     config = data_reader.config
     train_data = data_reader.build_dataset(train_path)
     test_data = data_reader.build_dataset(test_path)
-    sess_config = tf.ConfigProto(device_count={"CPU": config.cpu_num}, inter_op_parallelism_threads=0, intra_op_parallelism_threads=0)
+    sess_config = tf.ConfigProto(device_count={"CPU": config.cpu_num},
+                                 inter_op_parallelism_threads=0,
+                                 intra_op_parallelism_threads=0)
     with tf.Session(config=sess_config) as sess:
         # Create model.
-        print(
-            "Creating %d layers of %d units." % (
-                config.num_layers, config.size))
+        print("Creating %d layers of %d units." % (config.num_layers, config.size))
         sys.stdout.flush()
         model = create_model(sess, False, model_path, config=config)
         # Read data into buckets and compute their sizes.
-        train_bucket_sizes = [len(train_data[b]) for b in
-                              range(len(config.buckets))]
+        train_bucket_sizes = [len(train_data[b]) for b in range(len(config.buckets))]
         print("Training bucket sizes: {}".format(train_bucket_sizes))
         train_total_size = float(sum(train_bucket_sizes))
         print("Total train size: {}".format(train_total_size))
@@ -190,9 +191,7 @@ def train(data_reader, train_path, test_path, model_path):
         # A bucket scale is a list of increasing numbers from 0 to 1 that
         # we'll use to select a bucket. Length of [scale[i], scale[i+1]] is
         # proportional to the size if i-th training bucket, as used later.
-        train_buckets_scale = [
-            sum(train_bucket_sizes[:i + 1]) / train_total_size
-            for i in range(len(train_bucket_sizes))]
+        train_buckets_scale = [sum(train_bucket_sizes[:i + 1]) / train_total_size for i in range(len(train_bucket_sizes))]
 
         # This is the training loop.
         step_time, loss = 0.0, 0.0
@@ -283,7 +282,7 @@ def decode(sess, model, data_reader, data_to_decode, corrective_tokens=set(),
 
     corrective_tokens_mask = np.zeros(model.target_vocab_size)
     corrective_tokens_mask[EOS_ID] = 1.0
-    #for token in corrective_tokens:
+    # for token in corrective_tokens:
     #    corrective_tokens_mask[data_reader.convert_token_to_id(token)] = 1.0
     for tokens in corrective_tokens:
         for token in tokens:
@@ -309,7 +308,7 @@ def decode(sess, model, data_reader, data_to_decode, corrective_tokens=set(),
             True, corrective_tokens=corrective_tokens_mask)
         decode_ppx = math.exp(float(decode_loss)) if decode_loss < 300 else float("inf")
         print("decode: bucket %d perplexity %.2f" % (bucket_id, decode_ppx))
-        #print(output_logits)
+        # print(output_logits)
         oov_input_tokens = [token for token in tokens if
                             data_reader.is_unknown_token(token)]
         outputs = []
@@ -323,7 +322,7 @@ def decode(sess, model, data_reader, data_to_decode, corrective_tokens=set(),
                 break
 
             token = data_reader.convert_id_to_token(max_likelihood_token_id)
-            #print(token)
+            # print(token)
             if data_reader.is_unknown_token(token):
                 # Replace the "unknown" token with the most probable OOV
                 # token from the input.
@@ -443,9 +442,9 @@ def main(_):
         raise ValueError("config argument not recognized; must be one of: "
                          "TestConfig, DefaultPTBConfig, DefaultFCEConfig, "
                          "DefaultMovieDialogConfig")
-                         
+
     is_train = not (FLAGS.correct or FLAGS.evaluate or FLAGS.decode)
-                         
+
     # Determine which kind of DataReader we want to use.
     if FLAGS.data_reader_type == "MovieDialogReader":
         data_reader = MovieDialogReader(config, FLAGS.train_path) if is_train else None
@@ -459,49 +458,55 @@ def main(_):
 
     corrective_tokens = set()
     import pickle
-    if not is_train:        
+    if not is_train:
         with open(os.path.join(FLAGS.model_path, "token_to_id.pickle"), "rb") as f:
             token_to_id = pickle.load(f)
         if FLAGS.data_reader_type == "MovieDialogReader":
-            data_reader = MovieDialogReader(config, None, token_to_id, dropout_prob=0.25, replacement_prob=0.25, dataset_copies=1)
+            data_reader = MovieDialogReader(config, None, token_to_id, dropout_prob=0.25, replacement_prob=0.25,
+                                            dataset_copies=1)
         elif FLAGS.data_reader_type == "PTBDataReader":
-            data_reader = PTBDataReader(config, None, token_to_id, dropout_prob=0.25, replacement_prob=0.25, dataset_copies=1)
+            data_reader = PTBDataReader(config, None, token_to_id, dropout_prob=0.25, replacement_prob=0.25,
+                                        dataset_copies=1)
         elif FLAGS.data_reader_type == "FCEReader":
-            data_reader = FCEReader(config, None, token_to_id, dropout_prob=0.25, replacement_prob=0.25, dataset_copies=1)
-        #with open(os.path.join(FLAGS.model_path, "corrective_tokens.pickle"), "rb") as f:
+            data_reader = FCEReader(config, None, token_to_id, dropout_prob=0.25, replacement_prob=0.25,
+                                    dataset_copies=1)
+        # with open(os.path.join(FLAGS.model_path, "corrective_tokens.pickle"), "rb") as f:
         #    corrective_tokens = pickle.load(f)
-        #corrective_tokens = data_reader.read_tokens(FLAGS.train_path)
+        # corrective_tokens = data_reader.read_tokens(FLAGS.train_path)
         corrective_tokens = get_corrective_tokens(data_reader, FLAGS.train_path)
-        #print(corrective_tokens)
+        # print(corrective_tokens)
     else:
-        corrective_tokens = get_corrective_tokens(data_reader, FLAGS.train_path)   
-        #print(corrective_tokens) 
+        corrective_tokens = get_corrective_tokens(data_reader, FLAGS.train_path)
+        # print(corrective_tokens)
         sys.stdout.flush()
         with open(os.path.join(FLAGS.model_path, "corrective_tokens.pickle"), "wb") as f:
             pickle.dump(corrective_tokens, f)
         with open(os.path.join(FLAGS.model_path, "token_to_id.pickle"), "wb") as f:
             pickle.dump(data_reader.token_to_id, f)
 
-    sess_config = tf.ConfigProto(device_count={"CPU": config.cpu_num}, inter_op_parallelism_threads=0, intra_op_parallelism_threads=0)
+    sess_config = tf.ConfigProto(device_count={"CPU": config.cpu_num}, inter_op_parallelism_threads=0,
+                                 intra_op_parallelism_threads=0)
 
     if FLAGS.correct:
         with tf.Session(config=sess_config) as session:
-        #session = tf.InteractiveSession()
+            # session = tf.InteractiveSession()
             model = create_model(session, True, FLAGS.model_path, config=config)
             print("Loaded model. Beginning correcting.")
             while True:
                 sentence = input("Input sentence or exit\n")
                 if sentence:
                     if sentence.lower() == 'exit':
-                        break                
-                    decoded = decode_sentence(session, model=model, data_reader=data_reader, sentence=sentence, corrective_tokens=corrective_tokens, verbose=True)
+                        break
+                    decoded = decode_sentence(session, model=model, data_reader=data_reader, sentence=sentence,
+                                              corrective_tokens=corrective_tokens, verbose=True)
                     sys.stdout.flush()
-        #session.close()
+                    # session.close()
     elif FLAGS.evaluate:
         with tf.Session(config=sess_config) as session:
             model = create_model(session, True, FLAGS.model_path, config=config)
             print("Loaded model. Beginning evaluating.")
-            errors = evaluate_accuracy(session, model=model, data_reader=data_reader, corrective_tokens=corrective_tokens, test_path=FLAGS.test_path)
+            errors = evaluate_accuracy(session, model=model, data_reader=data_reader,
+                                       corrective_tokens=corrective_tokens, test_path=FLAGS.test_path)
             print(errors)
             sys.stdout.flush()
     elif FLAGS.decode:
