@@ -10,6 +10,9 @@ tf.app.flags.DEFINE_string("out_test_file", "../corpus/movie_test.txt", "")
 
 FLAGS = tf.app.flags.FLAGS
 
+TRAINING_RATE = 0.1
+VAL_RATE = 0.1
+TEST_RATE = 0.1
 
 def main(_):
     with open(FLAGS.raw_data, "r", encoding='utf8') as raw_data, \
@@ -27,8 +30,8 @@ def main(_):
             preprocessed.append(" ".join(nltk.word_tokenize(s)))
 
         size = len(preprocessed)
-        train_size, val_size = int(size * 0.7), int(size * 0.2)
-        print('Total lines: {0}\nTrain lines: {1}\nValidation lines: {2}\nTest lines: {3}.'.format(size, train_size, val_size, size - train_size - val_size))
+        train_size, val_size, test_size = int(size * TRAINING_RATE), int(size * VAL_RATE), int(size * TEST_RATE)
+        print('Total lines: {0}\nTrain lines: {1}\nValidation lines: {2}\nTest lines: {3}.'.format(size, train_size, val_size, test_size))
 
         random.shuffle(preprocessed)
 
@@ -37,8 +40,10 @@ def main(_):
                 out_train.write(line + '\n')
             elif index < train_size + val_size:
                 out_val.write(line + '\n')
-            else:
+            elif index < train_size + val_size + test_size:
                 out_test.write(line + '\n')
+            else:
+                break
 
         print('Done.')
 if __name__ == "__main__":

@@ -126,10 +126,8 @@ class DataReader(object):
         # dropouts.
         for _ in range(self.dataset_copies):
             for source, target in self.read_samples(path):
-                for bucket_id, (source_size, target_size) in enumerate(
-                        self.config.buckets):
-                    if len(source) < source_size and len(
-                            target) < target_size:
+                for bucket_id, (source_size, target_size) in enumerate(self.config.buckets):
+                    if len(source) < source_size and len(target) < target_size:
                         dataset[bucket_id].append([source, target])
                         break
 
